@@ -48,4 +48,8 @@ class CountyController extends Controller
         $counties = County::where('name', 'like', '%' . $request->input('filter') . '%')->get();
         return view('county/index', compact('counties'));
     }
+    public function save(Request $request, County $county){
+        $county->save($request->all());
+        return redirect()->route('county/index');
+    }
 }

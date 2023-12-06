@@ -2,9 +2,9 @@
 
 namespace App\Console\Commands;
 
-use Exception;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
+use App\Models\County;
 
 class ImportCounties extends Command
 {
@@ -13,7 +13,7 @@ class ImportCounties extends Command
      *
      * @var string
      */
-    protected $signature = 'app:import-counties {fileName} {database?}';
+    protected $signature = 'app:import-counties {fileName} {database}';
 
     /**
      * The console command description.
@@ -23,57 +23,64 @@ class ImportCounties extends Command
     protected $description = 'A megadott .csv fájlból importálja a vármegyéket a megadott adatbázisba';
 
     /**
-     * Execute the console command.
-     * 
-     * @return void
-     */
-    public function __construct(){
-        parent::__construct();
+    * Execute the console command.
+    *
+    * @return void
+    */
+    private function getCounties($csvData){
+        $county = '';
+        $counties = [];
+        
+        foreach ($csvData as $row) {
+            if(!is_array($row)){
+                continue;
+            }
+           if($county != $row[0]){
+                $county = $row[0];
+                $counties[] = $county;
+           }
+        }
+        return $counties;
     }
+    private function createCounties($counties){
+        if(!$counties){
+            return 0;
+        }
+        foreach ($counties as $county) {
+            echo "$county\n";
+            County::create(['name'=> $county]);
+            $this->info('Vármegye hozzáadva: ' . $county);
+        }
+        return true;
+    }
+
+
     public function handle()
     {
-        $fileName = $this->argument(key: 'fileName');
+        $fileName = $this->argument('fileName');
         $csvData = $this->getCSVData($fileName);
-        var_dump($csvData);
-        return 0;
-
-        $schemaName = $this->argument('app:import-counties') ?: config("database.connections.mysql.database");
-        $charset = config("database.connections.mysql.charset",'utf8_hungarian_ci');
-        $collation = config("database.connections.mysql.collation",'utf8_hungarian_unicode_ci');
-
-        config(["database.connections.mysql.database" => null]);
-
-        $query = "CREATE DATABASE IF NOT EXISTS $schemaName CHARACTER SET $charset COLLATE $collation;";
-
-        try {
-            DB::statement($query);
-            echo "$schemaName database has been created.";
-        }
-        catch (Exception $e) {
-            $e->getMessage();
-        }
-
-        config(["database.connections.mysql.database" => $schemaName]);
+        $counties = $this->getCounties($csvData);
+        $this->createCounties($counties);
     }
     private function getCSVData($fileName, $withHeader = true){
-        $arrResult  = array();
-        if(!file_exists($fileName)){
-            $this->error("A $fileName nem létezik!");
+        if (!file_exists($fileName)) {
+            echo "$fileName nem találhetó";
             return false;
         }
-        $csvFile = fopen($fileName, 'r');
+        $csvFile = fopen($fileName,'r');
         $header = fgetcsv($csvFile);
-        if($withHeader){
+        if ($withHeader){
             $lines[] = $header;
         }
         else{
-            $lines = [];
+            $lines[] = $header;
         }
-        while(!feof($csvFile)){
+        while (! feof($csvFile)) {
             $line = fgetcsv($csvFile);
             $lines[] = $line;
         }
         fclose($csvFile);
+
         return $lines;
     }
 }
